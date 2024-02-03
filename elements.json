@@ -1,12 +1,12 @@
 {
   "alt": {
-    "x": 50,
+    "x": 45,
     "y": 10,
     "font_size": 30,
     "font_id": 2
   },
   "gl": {
-    "x": 160,
+    "x": 150,
     "y": 10,
     "font_size": 30,
     "font_id": 1,
@@ -21,13 +21,13 @@
   },
   "hspeed": {
     "x": 70,
-    "y": 130,
+    "y": 110,
     "font_size": 50,
     "font_id": 2
   },
   "vspeed": {
     "x": 70,
-    "y": 200,
+    "y": 160,
     "font_size": 50,
     "font_id": 2
   },
@@ -56,13 +56,13 @@
     },
     "Vh": {
       "x": 20,
-      "y": 160,
+      "y": 140,
       "font_size": 15,
       "font_id": 2
     },
     "Vd": {
       "x": 20,
-      "y": 230,
+      "y": 190,
       "font_size": 15,
       "font_id": 2,
       "color": "green"

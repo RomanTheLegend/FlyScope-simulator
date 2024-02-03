@@ -7,8 +7,8 @@
     <style>
       #csvArea {
         position: relative;
-        width: 240px;
-        height: 280px;
+        width: 222px;
+        height: 240px;
         background-color: #ffffff;
         margin-right: 20px;
         overflow: hidden;
@@ -185,6 +185,18 @@
         const outputDiv = document.getElementById('output');
         outputDiv.innerHTML = ''; // Clear previous content
 
+        const ff = document.createElement('div');
+        ff.id = "ff";
+        ff.textContent = 'airplane';
+        ff.style.position = 'absolute';
+        ff.style.left = '180px';
+        ff.style.top = '225px';
+        ff.style.fontSize = '10px';
+        ff.style.fontFamily = 'Arial';
+        ff.style.color = '#fff';
+
+        outputDiv.appendChild(ff);
+
         // Create elements based on the parsed JSON
         for (const key in data) {
 
@@ -246,15 +258,7 @@
               if (exit_dp !== null) {
                   exit_dp.t = (exit_dp.ts - first_ts) / 1000.0;
                   console.log("Freefall! " + exit_dp.t);
-                  const ff = document.createElement('div');
-                    ff.id = "ff";
-                    ff.textContent = "=== freefall ===";
-                    ff.style.position = 'absolute';
-                    ff.style.left = '40px';
-                    ff.style.top = '250px';
-                    ff.style.fontSize = '15px';
-                    ff.style.fontFamily = 'Arial';
-                    ff.color = "#fff";
+                  document.getElementById('ff').textContent = 'freefall'
               }
           }
 
