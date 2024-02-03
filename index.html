@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FlyScope</title>
+    <style>
+      #csvArea {
+        position: relative;
+        width: 240px;
+        height: 280px;
+        background-color: #ccc;
+        margin-right: 20px;
+        overflow: hidden;
+      }
+
+      #container {
+        display: flex;
+    }   
+
+    #output {
+      width: 100%;
+      height: 100%;
+      background-color: lightgray;
+      position: absolute;
+    }
+
+    #jsonInput {
+      width: 600px;
+      height: 280px;
+      margin-right: 20px;
+      padding: 10px;
+    }
+
+    #playButton {
+      margin-top: 30px;
+    }
+  </style>
+
+
+    </style>
+  </head>
+  <body>
+    <script src="datapoint.js"></script>
+
+    <div id="container">
+        <div id="csvArea">
+          <div id="output"></div>
+        </div>
+    
+        <textarea id="jsonInput" placeholder="Enter JSON here"></textarea>
+      </div>
+    
+
+      <button id="openCsvBtn" style="margin-left: 50px;">Open CSV</button>
+      <button id="playBtn" onclick="play()">Play</button>
+      <button id="stopBtn" onclick="stop()">Stop</button>
+
+      <!-- <button id="playButton" onclick="play()">Play</button> -->
+
+
+
+
+    <script>
+      const SLOPE_LEN = 4
+
+      var playbackInterval
+      var allLines
+      var read_position
+      var first_ts
+
+      let timeseries = []
+
+      document
+        .getElementById('openCsvBtn')
+        .addEventListener('click', function () {
+          // Trigger file input click
+          var fileInput = document.createElement('input')
+          fileInput.type = 'file'
+          fileInput.accept = '.csv'
+          fileInput.addEventListener('change', function (event) {
+            var file = event.target.files[0]
+            if (file) {
+              readCSVFile(file)
+            }
+          })
+          fileInput.click()
+        })
+
+      function readCSVFile(file) {
+        var reader = new FileReader()
+        var csvContent
+        reader.onload = function (event) {
+          csvContent = event.target.result
+          allLines = csvContent.split('\n')
+          read_position = 2
+          first_ts = 0
+        }
+        reader.readAsText(file)
+      }
+
+      function convertToUnixEpoch(rawString) {
+        const timeString = rawString.slice(0, 23) // Extract timestamp string (excluding 'Z')
+
+        // Parse the timestamp string
+        // Example: 2023-08-24T12:59:14.400
+        const year = parseInt(timeString.slice(0, 4), 10)
+        const month = parseInt(timeString.slice(5, 7), 10) - 1 // Months are zero-based in JavaScript
+        const day = parseInt(timeString.slice(8, 10), 10)
+        const hour = parseInt(timeString.slice(11, 13), 10)
+        const minute = parseInt(timeString.slice(14, 16), 10)
+        const second = parseInt(timeString.slice(17, 19), 10)
+        const millis = parseInt(timeString.slice(20, 23), 10)
+
+        const dt = new Date(year, month, day, hour, minute, second)
+        const unixEpoch = dt.getTime() + millis
+
+        return unixEpoch
+      }
+
+      function getNextLine(file) {
+        const nextLine = allLines[read_position]
+        const row = nextLine.split(',')
+        const point = new DataPoint()
+
+        point.ts = convertToUnixEpoch(row[0]) //convert_to_unix_epoch(row[0]);
+        if (first_ts == 0) {
+          first_ts = point.ts
+        }
+        point.t = (point.ts - first_ts) / 1000.0
+        point.lat = parseFloat(row[1])
+        point.lon = parseFloat(row[2])
+        point.hMSL = parseFloat(row[3])
+        point.velN = parseFloat(row[4])
+        point.velE = parseFloat(row[5])
+        point.velD = parseFloat(row[6])
+        point.hAcc = parseFloat(row[7])
+        point.vAcc = parseFloat(row[8])
+        point.sAcc = parseFloat(row[9])
+        point.heading = parseFloat(row[10])
+        point.cAcc = parseFloat(row[11])
+        point.gpsFix = row[12]
+        point.numSV = Number(row[13])
+
+        read_position++
+
+        console.log(point)
+        return point
+      }
+
+      function addElement(value) {
+        for (let i = 0; i < SLOPE_LEN - 1; i++) {
+          timeseries[i] = timeseries[i + 1]
+        }
+        timeseries[SLOPE_LEN - 1] = value
+      }
+
+
+      //   function displayCSVContent(csvContent) {
+      //     var csvLines = csvContent.split('\n');
+      //     var csvArea = document.getElementById('csvArea');
+      //     csvArea.innerHTML = ''; // Clear previous content
+
+      //     var lineIndex = 0;
+      //     playbackInterval = setInterval(function () {
+      //       if (lineIndex < csvLines.length) {
+      //         csvArea.innerHTML += csvLines[lineIndex] + '<br>';
+      //         lineIndex++;
+      //       } else {
+      //         clearInterval(playbackInterval); // Stop interval when all lines are displayed
+      //       }
+      //     }, 1000);
+      //   }
+
+      function play() {
+        document.getElementById('openCsvBtn').disabled = true;
+        document.getElementById('playBtn').disabled = true;
+
+
+        const jsonInput = document.getElementById('jsonInput').value;
+
+        try {
+        // Parse the JSON input
+        const data = JSON.parse(jsonInput);
+
+        // Get the output div
+        const outputDiv = document.getElementById('output');
+        outputDiv.innerHTML = ''; // Clear previous content
+
+        // Create elements based on the parsed JSON
+        for (const key in data) {
+
+            if ( key != 'labels' ) {
+                const element = document.createElement('div');
+                element.id = key;
+                element.style.position = 'absolute';
+                element.style.left = data[key].x + 'px';
+                element.style.top = data[key].y + 'px';
+                element.style.fontSize = data[key].font_size + 'px';
+                element.style.fontFamily = 'Arial'; // Change font as needed
+
+                // Additional properties for "gl"
+                if (data[key].color) {
+                    element.style.color = data[key].color;
+                }
+
+                outputDiv.appendChild(element);
+
+            } else {
+                console.log("parsing labels:");
+                var labels_data = data[key];
+
+                for (const lbl_key in labels_data) {
+                    const lbl_element = document.createElement('div');
+                    lbl_element.id = "label_" + lbl_key;
+                    lbl_element.textContent = lbl_key;
+                    lbl_element.style.position = 'absolute';
+                    lbl_element.style.left = labels_data[lbl_key].x + 'px';
+                    lbl_element.style.top = labels_data[lbl_key].y + 'px';
+                    lbl_element.style.fontSize = labels_data[lbl_key].font_size + 'px';
+                    lbl_element.style.fontFamily = 'Arial'; // Change font as needed
+
+                    // Additional properties for "gl"
+                    if (labels_data[lbl_key].color) {
+                        lbl_element.style.color = labels_data[lbl_key].color;
+                    }
+
+                    outputDiv.appendChild(lbl_element);
+                }
+            }
+        }
+
+        } catch (error) {
+            alert('Error parsing JSON: ' + error.message);
+            stop();
+            return;
+        }
+
+
+        playbackInterval = setInterval(function () {
+          if (read_position < allLines.length - 1) {
+            point = getNextLine();
+            addElement(point);
+
+            var currentAlt = point.hMSL; // - references['dz']['hmsl']
+            const data = JSON.parse(jsonInput);
+            for (const key in data) {
+                cur_element = document.getElementById(key);
+                switch (key) {
+                case 'gl':
+                    
+                    cur_element.textContent = DataPoint.glideRatio(point).toFixed(1);
+                    break;
+                case 'hspeed':
+                    cur_element.textContent = (DataPoint.horizontalSpeed(point) * 3.6).toFixed(0);
+                    break;
+                case 'vspeed':
+                    cur_element.textContent = (point.velD * 3.6).toFixed(0);
+                    break;
+                case 'hmsl':
+                    cur_element.textContent = point.hMSL.toFixed(0);
+                    break;
+                case 'alt':
+                    cur_element.textContent = currentAlt.toFixed(0);
+                    break;
+                case 'totalSpeed':
+                    cur_element.textContent = (DataPoint.totalSpeed(point) * 3.6).toFixed(0);
+                    break;
+            }
+    }
+
+          } else {
+            clearInterval(playbackInterval) // Stop interval when all lines are displayed
+            document.getElementById('openCsvBtn').disabled = false;
+            document.getElementById('playBtn').disabled = false;
+          }
+        }, 200)
+      }
+
+      function stop() {
+        clearInterval(playbackInterval) // Stop playback
+        document.getElementById('openCsvBtn').disabled = false;
+        document.getElementById('playBtn').disabled = false;
+      }
+    </script>
+  </body>
+</html>
