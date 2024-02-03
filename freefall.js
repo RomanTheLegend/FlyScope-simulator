@@ -1,7 +1,3 @@
-// Import the DataPoint class
-const DataPoint = require('./datapoint');
-
-const SLOPE_LEN = 4;
 const A_GRAVITY = 9.81; // Earth's gravitational acceleration
 
 function get_slope(timeseries) {
@@ -22,7 +18,7 @@ function get_slope(timeseries) {
     return slope;
 }
 
-function detect_freefall(timeseries) {
+function detectFreefall(timeseries) {
     timeseries[SLOPE_LEN - 1].az = get_slope(timeseries);
     const g = A_GRAVITY;
 

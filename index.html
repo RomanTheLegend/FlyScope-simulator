@@ -46,6 +46,7 @@
   </head>
   <body>
     <script src="datapoint.js"></script>
+    <script src="freefall.js"></script>
 
     <div id="container">
       <div>
@@ -75,8 +76,11 @@
       var allLines
       var read_position
       var first_ts
+      var ff_flag, score
+      let exit_dp, start_dp, finish_dp;
+      [exit_dp, start_dp, finish_dp] = [null, null, null];
 
-      let timeseries = []
+      let timeseries = Array.from({ length: SLOPE_LEN }, () => null);
 
       document
         .getElementById('openCsvBtn')
@@ -149,10 +153,10 @@
         point.gpsFix = row[12]
         point.numSV = Number(row[13])
 
-        read_position++
+        read_position++;
 
-        console.log(point)
-        return point
+        console.log(point);
+        return point;
       }
 
       function addElement(value) {
@@ -163,21 +167,7 @@
       }
 
 
-      //   function displayCSVContent(csvContent) {
-      //     var csvLines = csvContent.split('\n');
-      //     var csvArea = document.getElementById('csvArea');
-      //     csvArea.innerHTML = ''; // Clear previous content
 
-      //     var lineIndex = 0;
-      //     playbackInterval = setInterval(function () {
-      //       if (lineIndex < csvLines.length) {
-      //         csvArea.innerHTML += csvLines[lineIndex] + '<br>';
-      //         lineIndex++;
-      //       } else {
-      //         clearInterval(playbackInterval); // Stop interval when all lines are displayed
-      //       }
-      //     }, 1000);
-      //   }
 
       function play() {
         document.getElementById('openCsvBtn').disabled = true;
@@ -215,7 +205,6 @@
                 outputDiv.appendChild(element);
 
             } else {
-                console.log("parsing labels:");
                 var labels_data = data[key];
 
                 for (const lbl_key in labels_data) {
@@ -251,7 +240,24 @@
             point = getNextLine();
             addElement(point);
 
-            var currentAlt = point.hMSL; // - references['dz']['hmsl']
+            if (exit_dp === null && timeseries[0] !== null) {
+              exit_dp = detectFreefall(timeseries);
+              if (exit_dp !== null) {
+                  exit_dp.t = (exit_dp.ts - first_ts) / 1000.0;
+                  console.log("Freefall! " + exit_dp.t);
+                  const ff = document.createElement('div');
+                    ff.id = "ff";
+                    ff.textContent = "=== freefall ===";
+                    ff.style.position = 'absolute';
+                    ff.style.left = '40px';
+                    ff.style.top = '250px';
+                    ff.style.fontSize = '15px';
+                    ff.style.fontFamily = 'Arial';
+                    ff.color = "#fff";
+              }
+          }
+
+            var currentAlt = point.hMSL - 218; // - references['dz']['hmsl']
             const data = JSON.parse(jsonInput);
             for (const key in data) {
                 cur_element = document.getElementById(key);
