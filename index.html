@@ -41,8 +41,11 @@
     }
   </style>
 
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    
+  <!-- Include Leaflet JavaScript -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-    </style>
   </head>
   <body>
     <script src="datapoint.js"></script>
@@ -58,11 +61,24 @@
         <button id="openCsvBtn" style="margin-left: 30px;margin-top: 20px;">Open CSV</button>
         <button id="playBtn" onclick="play()">Play</button>
         <button id="stopBtn" onclick="stop()">Stop</button>
+
+        <div class="coordinate-inputs">
+          <p>Target coordinates: (click on map)</p>
+          <div class="coordinate-input">
+            <label for="lat">Lat:</label>
+            <input type="text" style="margin-left: 4px;" id="lat" readonly>
+          </div>
+          <div class="coordinate-input" style="margin-top: 5px;">
+            <label for="lon">Lon:</label>
+            <input type="text" id="lon" readonly>
+          </div>
+        </div>
       </div>
         <textarea id="jsonInput" placeholder="Enter JSON here"></textarea>
+        <div id="map" style="height: 400px;width: 400px;"></div>
       </div>
     
-
+      
 
 
       <!-- <button id="playButton" onclick="play()">Play</button> -->
@@ -71,6 +87,42 @@
 
 
     <script>
+// const coordinates1 = [37.7749, -122.4194]; // San Francisco, CA
+
+
+    const map = L.map('map').setView([0, 0], 2);
+    const markers = L.featureGroup().addTo(map);
+
+    const latInput = document.getElementById('lat');
+    const lonInput = document.getElementById('lon');
+
+    var movingDot;
+    var targetPin;
+    map.on('click', function (e) {
+      const lat = e.latlng.lat.toFixed(6);
+      const lon = e.latlng.lng.toFixed(6);
+
+      latInput.value = lat;
+      lonInput.value = lon;
+
+
+      if (targetPin) {
+        markers.removeLayer(targetPin);
+      }
+
+      targetPin = L.marker([lat, lon]).addTo(markers)
+          .bindPopup('Target')
+          .openPopup();
+    });
+
+  
+    // Add a tile layer (OpenStreetMap)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+  
+
+
       const SLOPE_LEN = 4
 
       var playbackInterval
@@ -107,6 +159,21 @@
           allLines = csvContent.split('\n')
           read_position = 2
           first_ts = 0
+
+        let row = allLines[2].split(',')
+        let lat = parseFloat(row[1]);
+        let lon = parseFloat(row[2]);
+        let coordinates1 = [lat, lon];
+        console.log(coordinates1);
+
+        markers.clearLayers();
+
+        map.setView(coordinates1, 12);
+        // Add markers for the coordinates
+        L.marker(coordinates1).addTo(markers)
+          .bindPopup('First data point')
+          .openPopup();
+  
         }
         reader.readAsText(file)
       }
@@ -259,10 +326,36 @@
                   exit_dp.t = (exit_dp.ts - first_ts) / 1000.0;
                   console.log("Freefall! " + exit_dp.t);
                   document.getElementById('ff').textContent = 'freefall'
+
+                  L.marker([exit_dp.lat,exit_dp.lon]).addTo(markers)
+                    .bindPopup('Exit')
+                    .openPopup();
               }
           }
 
             var currentAlt = point.hMSL - 218; // - references['dz']['hmsl']
+
+            if (start_dp === null && currentAlt <=2500){
+              start_dp = point;
+              L.marker([start_dp.lat,start_dp.lon]).addTo(markers)
+                    .bindPopup('2500m')
+                    .openPopup();
+            }
+
+            if (finish_dp === null && currentAlt <=1500){
+              finish_dp = point;
+              L.marker([finish_dp.lat,finish_dp.lon]).addTo(markers)
+                    .bindPopup('1500m')
+                    .openPopup();
+            }
+
+            if (movingDot) {
+              markers.removeLayer(movingDot);
+            }
+
+            movingDot = L.circleMarker([point.lat, point.lon], { radius: 5, color: 'red' }).addTo(markers);
+
+
             const data = JSON.parse(jsonInput);
             for (const key in data) {
                 cur_element = document.getElementById(key);
