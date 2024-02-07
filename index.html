@@ -72,10 +72,15 @@
             <label for="lon">Lon:</label>
             <input type="text" id="lon" readonly>
           </div>
+          <div class="coordinate-input" style="margin-top: 5px;">
+            <label for="lon">DZ Elevation:</label>
+            <input type="text" id="dz_el" placeholder="0" style="width: 40px;" >
+            <label for="lon">m</label>
+          </div>
         </div>
       </div>
         <textarea id="jsonInput" placeholder="Enter JSON here"></textarea>
-        <div id="map" style="height: 400px;width: 400px;"></div>
+        <div id="map" style="height: 500px;width: 500px;"></div>
       </div>
     
       
@@ -87,10 +92,9 @@
 
 
     <script>
-// const coordinates1 = [37.7749, -122.4194]; // San Francisco, CA
 
 
-    const map = L.map('map').setView([0, 0], 2);
+const map = L.map('map').setView([0, 0], 2);
     const markers = L.featureGroup().addTo(map);
 
     const latInput = document.getElementById('lat');
@@ -98,87 +102,100 @@
 
     var movingDot;
     var targetPin;
-    map.on('click', function (e) {
-      const lat = e.latlng.lat.toFixed(6);
-      const lon = e.latlng.lng.toFixed(6);
+    var lane = null;
+    map.on('click', function(e) {
+        const lat = e.latlng.lat.toFixed(6);
+        const lon = e.latlng.lng.toFixed(6);
 
-      latInput.value = lat;
-      lonInput.value = lon;
+        latInput.value = lat;
+        lonInput.value = lon;
 
+        target_dp = new DataPoint();
+        target_dp.lat = lat;
+        target_dp.lon = lon;
 
-      if (targetPin) {
-        markers.removeLayer(targetPin);
-      }
+        if (targetPin) {
+            markers.removeLayer(targetPin);
+        }
 
-      targetPin = L.marker([lat, lon]).addTo(markers)
-          .bindPopup('Target')
-          .openPopup();
+        if (lane){
+          markers.removeLayer(lane);
+          lane = null;
+        }
+
+        targetPin = L.marker(target_dp).addTo(markers)
+            .bindPopup('Target')
+            .openPopup();
     });
 
-  
+
     // Add a tile layer (OpenStreetMap)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
+        attribution: '© OpenStreetMap contributors'
     }).addTo(map);
-  
 
 
-      const SLOPE_LEN = 4
 
-      var playbackInterval
-      var allLines
-      var read_position
-      var first_ts
-      var ff_flag, score
-      let exit_dp, start_dp, finish_dp;
-      [exit_dp, start_dp, finish_dp] = [null, null, null];
+    const SLOPE_LEN = 4
 
-      let timeseries = Array.from({ length: SLOPE_LEN }, () => null);
+    var playbackInterval
+    var allLines
+    var read_position
+    var first_ts
+    var ff_flag, score
+    let exit_dp, start_dp, finish_dp, target_dp;
+    [exit_dp, lane_s_dp, start_dp, finish_dp, target_dp] = [null, null, null, null, null];
 
-      document
+    let timeseries = Array.from({
+        length: SLOPE_LEN
+    }, () => null);
+
+    document
         .getElementById('openCsvBtn')
-        .addEventListener('click', function () {
-          // Trigger file input click
-          var fileInput = document.createElement('input')
-          fileInput.type = 'file'
-          fileInput.accept = '.csv'
-          fileInput.addEventListener('change', function (event) {
-            var file = event.target.files[0]
-            if (file) {
-              readCSVFile(file)
-            }
-          })
-          fileInput.click()
+        .addEventListener('click', function() {
+            // Trigger file input click
+            var fileInput = document.createElement('input')
+            fileInput.type = 'file'
+            fileInput.accept = '.csv'
+            fileInput.addEventListener('change', function(event) {
+                var file = event.target.files[0]
+                if (file) {
+                    readCSVFile(file)
+                }
+            })
+            fileInput.click()
         })
 
-      function readCSVFile(file) {
+
+    function readCSVFile(file) {
         var reader = new FileReader()
         var csvContent
-        reader.onload = function (event) {
-          csvContent = event.target.result
-          allLines = csvContent.split('\n')
-          read_position = 2
-          first_ts = 0
+        reader.onload = function(event) {
+            csvContent = event.target.result
+            allLines = csvContent.split('\n')
+            read_position = 2
+            first_ts = 0
 
-        let row = allLines[2].split(',')
-        let lat = parseFloat(row[1]);
-        let lon = parseFloat(row[2]);
-        let coordinates1 = [lat, lon];
-        console.log(coordinates1);
+            let row = allLines[2].split(',')
+            let lat = parseFloat(row[1]);
+            let lon = parseFloat(row[2]);
+            let coordinates1 = [lat, lon];
+            console.log(coordinates1);
 
-        markers.clearLayers();
+            markers.clearLayers();
 
-        map.setView(coordinates1, 12);
-        // Add markers for the coordinates
-        L.marker(coordinates1).addTo(markers)
-          .bindPopup('First data point')
-          .openPopup();
-  
+            map.setView(coordinates1, 12);
+            // Add markers for the coordinates
+            L.marker(coordinates1).addTo(markers)
+                .bindPopup('First data point')
+                .openPopup();
+
         }
         reader.readAsText(file)
-      }
+    }
 
-      function convertToUnixEpoch(rawString) {
+
+    function convertToUnixEpoch(rawString) {
         const timeString = rawString.slice(0, 23) // Extract timestamp string (excluding 'Z')
 
         // Parse the timestamp string
@@ -195,16 +212,17 @@
         const unixEpoch = dt.getTime() + millis
 
         return unixEpoch
-      }
+    }
 
-      function getNextLine(file) {
+
+    function getNextLine(file) {
         const nextLine = allLines[read_position]
         const row = nextLine.split(',')
         const point = new DataPoint()
 
         point.ts = convertToUnixEpoch(row[0]) //convert_to_unix_epoch(row[0]);
         if (first_ts == 0) {
-          first_ts = point.ts
+            first_ts = point.ts
         }
         point.t = (point.ts - first_ts) / 1000.0
         point.lat = parseFloat(row[1])
@@ -225,19 +243,20 @@
 
         console.log(point);
         return point;
-      }
+    }
 
-      function addElement(value) {
+
+    function addElement(value) {
         for (let i = 0; i < SLOPE_LEN - 1; i++) {
-          timeseries[i] = timeseries[i + 1]
+            timeseries[i] = timeseries[i + 1]
         }
         timeseries[SLOPE_LEN - 1] = value
-      }
+    }
 
 
 
 
-      function play() {
+    function play() {
         document.getElementById('openCsvBtn').disabled = true;
         document.getElementById('playBtn').disabled = true;
 
@@ -245,68 +264,68 @@
         const jsonInput = document.getElementById('jsonInput').value;
 
         try {
-        // Parse the JSON input
-        const data = JSON.parse(jsonInput);
+            // Parse the JSON input
+            const data = JSON.parse(jsonInput);
 
-        // Get the output div
-        const outputDiv = document.getElementById('output');
-        outputDiv.innerHTML = ''; // Clear previous content
+            // Get the output div
+            const outputDiv = document.getElementById('output');
+            outputDiv.innerHTML = ''; // Clear previous content
 
-        const ff = document.createElement('div');
-        ff.id = "ff";
-        ff.textContent = 'airplane';
-        ff.style.position = 'absolute';
-        ff.style.left = '180px';
-        ff.style.top = '225px';
-        ff.style.fontSize = '10px';
-        ff.style.fontFamily = 'Arial';
-        ff.style.color = '#fff';
+            const ff = document.createElement('div');
+            ff.id = "ff";
+            ff.textContent = 'airplane';
+            ff.style.position = 'absolute';
+            ff.style.left = '180px';
+            ff.style.top = '225px';
+            ff.style.fontSize = '10px';
+            ff.style.fontFamily = 'Arial';
+            ff.style.color = '#fff';
 
-        outputDiv.appendChild(ff);
+            outputDiv.appendChild(ff);
 
-        // Create elements based on the parsed JSON
-        for (const key in data) {
+            // Create elements based on the parsed JSON
+            for (const key in data) {
 
-            if ( key != 'labels' ) {
-                const element = document.createElement('div');
-                element.id = key;
-                element.className = "text"
-                element.style.position = 'absolute';
-                element.style.left = data[key].x + 'px';
-                element.style.top = data[key].y + 'px';
-                element.style.fontSize = data[key].font_size + 'px';
-                element.style.fontFamily = 'Arial'; // Change font as needed
-
-                // Additional properties for "gl"
-                if (data[key].color) {
-                    element.style.color = data[key].color;
-                }
-
-                outputDiv.appendChild(element);
-
-            } else {
-                var labels_data = data[key];
-
-                for (const lbl_key in labels_data) {
-                    const lbl_element = document.createElement('div');
-                    lbl_element.id = "label_" + lbl_key;
-                    lbl_element.className = "text"
-                    lbl_element.textContent = lbl_key;
-                    lbl_element.style.position = 'absolute';
-                    lbl_element.style.left = labels_data[lbl_key].x + 'px';
-                    lbl_element.style.top = labels_data[lbl_key].y + 'px';
-                    lbl_element.style.fontSize = labels_data[lbl_key].font_size + 'px';
-                    lbl_element.style.fontFamily = 'Arial'; // Change font as needed
+                if (key != 'labels') {
+                    const element = document.createElement('div');
+                    element.id = key;
+                    element.className = "text"
+                    element.style.position = 'absolute';
+                    element.style.left = data[key].x + 'px';
+                    element.style.top = data[key].y + 'px';
+                    element.style.fontSize = data[key].font_size + 'px';
+                    element.style.fontFamily = 'Arial'; // Change font as needed
 
                     // Additional properties for "gl"
-                    if (labels_data[lbl_key].color) {
-                        lbl_element.style.color = labels_data[lbl_key].color;
+                    if (data[key].color) {
+                        element.style.color = data[key].color;
                     }
 
-                    outputDiv.appendChild(lbl_element);
+                    outputDiv.appendChild(element);
+
+                } else {
+                    var labels_data = data[key];
+
+                    for (const lbl_key in labels_data) {
+                        const lbl_element = document.createElement('div');
+                        lbl_element.id = "label_" + lbl_key;
+                        lbl_element.className = "text"
+                        lbl_element.textContent = lbl_key;
+                        lbl_element.style.position = 'absolute';
+                        lbl_element.style.left = labels_data[lbl_key].x + 'px';
+                        lbl_element.style.top = labels_data[lbl_key].y + 'px';
+                        lbl_element.style.fontSize = labels_data[lbl_key].font_size + 'px';
+                        lbl_element.style.fontFamily = 'Arial'; // Change font as needed
+
+                        // Additional properties for "gl"
+                        if (labels_data[lbl_key].color) {
+                            lbl_element.style.color = labels_data[lbl_key].color;
+                        }
+
+                        outputDiv.appendChild(lbl_element);
+                    }
                 }
             }
-        }
 
         } catch (error) {
             alert('Error parsing JSON: ' + error.message);
@@ -315,86 +334,147 @@
         }
 
 
-        playbackInterval = setInterval(function () {
-          if (read_position < allLines.length - 1) {
-            point = getNextLine();
-            addElement(point);
+        playbackInterval = setInterval(function() {
+            if (read_position < allLines.length - 1) {
+                point = getNextLine();
+                addElement(point);
 
-            if (exit_dp === null && timeseries[0] !== null) {
-              exit_dp = detectFreefall(timeseries);
-              if (exit_dp !== null) {
-                  exit_dp.t = (exit_dp.ts - first_ts) / 1000.0;
-                  console.log("Freefall! " + exit_dp.t);
-                  document.getElementById('ff').textContent = 'freefall'
+                if (exit_dp === null && timeseries[0] !== null) {
+                    exit_dp = detectFreefall(timeseries);
+                    if (exit_dp !== null) {
+                        exit_dp.t = (exit_dp.ts - first_ts) / 1000.0;
+                        console.log("Freefall! " + exit_dp.t);
+                        document.getElementById('ff').textContent = 'freefall'
 
-                  L.marker([exit_dp.lat,exit_dp.lon]).addTo(markers)
-                    .bindPopup('Exit')
-                    .openPopup();
-              }
-          }
+                        L.marker([exit_dp.lat, exit_dp.lon]).addTo(markers)
+                            .bindPopup('Exit')
+                            .openPopup();
+                    }
+                }
 
-            var currentAlt = point.hMSL - 218; // - references['dz']['hmsl']
 
-            if (start_dp === null && currentAlt <=2500){
-              start_dp = point;
-              L.marker([start_dp.lat,start_dp.lon]).addTo(markers)
-                    .bindPopup('2500m')
-                    .openPopup();
+                if (exit_dp !== null && lane_s_dp === null && ((point.ts - exit_dp.ts) >= 10000 && (point.ts - exit_dp.ts) <= 12000)) {
+                    lane_s_dp = point;
+                    L.marker([lane_s_dp.lat, lane_s_dp.lon]).addTo(markers)
+                        .bindPopup('Lane start')
+                        .openPopup();
+                }
+
+                if( target_dp !== null && lane_s_dp !== null && lane === null){
+                  lane = L.polyline([
+                      [lane_s_dp.lat, lane_s_dp.lon],
+                      [target_dp.lat, target_dp.lon]
+                    ]).addTo(markers);
+                }
+
+                var currentAlt = point.hMSL - document.getElementById('dz_el').value;
+
+                if (start_dp === null && currentAlt <= 2500) {
+                    start_dp = point;
+                    L.marker([start_dp.lat, start_dp.lon]).addTo(markers)
+                        .bindPopup('2500m')
+                        .openPopup();
+
+                }
+
+                if (finish_dp === null && currentAlt <= 1500) {
+                    finish_dp = point;
+
+                    var distance = haversineDistance(start_dp, finish_dp);
+
+                    L.marker([finish_dp.lat, finish_dp.lon]).addTo(markers)
+                        .bindPopup('1500m')
+                        .openPopup();
+                }
+
+                if (movingDot) {
+                    markers.removeLayer(movingDot);
+                }
+
+                movingDot = L.circleMarker([point.lat, point.lon], {
+                    radius: 5,
+                    color: 'red'
+                }).addTo(markers);
+
+
+
+
+                if( lane_s_dp !== null && target_dp !== null){
+                  var deviation = distanceToLane(exit_dp,target_dp,point);
+                  // console.log(deviation);
+                }
+
+                const data = JSON.parse(jsonInput);
+                for (const key in data) {
+                    cur_element = document.getElementById(key);
+                    switch (key) {
+                        case 'gl':
+
+                            cur_element.textContent = DataPoint.glideRatio(point).toFixed(1);
+                            break;
+                        case 'hspeed':
+                            cur_element.textContent = (DataPoint.horizontalSpeed(point) * 3.6).toFixed(0);
+                            break;
+                        case 'vspeed':
+                            cur_element.textContent = (point.velD * 3.6).toFixed(0);
+                            break;
+                        case 'hmsl':
+                            cur_element.textContent = point.hMSL.toFixed(0);
+                            break;
+                        case 'alt':
+                            cur_element.textContent = currentAlt.toFixed(0);
+                            break;
+                        case 'totalSpeed':
+                            cur_element.textContent = (DataPoint.totalSpeed(point) * 3.6).toFixed(0);
+                            break;
+                    }
+                }
+
+            } else {
+                clearInterval(playbackInterval) // Stop interval when all lines are displayed
+                document.getElementById('openCsvBtn').disabled = false;
+                document.getElementById('playBtn').disabled = false;
             }
-
-            if (finish_dp === null && currentAlt <=1500){
-              finish_dp = point;
-              L.marker([finish_dp.lat,finish_dp.lon]).addTo(markers)
-                    .bindPopup('1500m')
-                    .openPopup();
-            }
-
-            if (movingDot) {
-              markers.removeLayer(movingDot);
-            }
-
-            movingDot = L.circleMarker([point.lat, point.lon], { radius: 5, color: 'red' }).addTo(markers);
-
-
-            const data = JSON.parse(jsonInput);
-            for (const key in data) {
-                cur_element = document.getElementById(key);
-                switch (key) {
-                case 'gl':
-                    
-                    cur_element.textContent = DataPoint.glideRatio(point).toFixed(1);
-                    break;
-                case 'hspeed':
-                    cur_element.textContent = (DataPoint.horizontalSpeed(point) * 3.6).toFixed(0);
-                    break;
-                case 'vspeed':
-                    cur_element.textContent = (point.velD * 3.6).toFixed(0);
-                    break;
-                case 'hmsl':
-                    cur_element.textContent = point.hMSL.toFixed(0);
-                    break;
-                case 'alt':
-                    cur_element.textContent = currentAlt.toFixed(0);
-                    break;
-                case 'totalSpeed':
-                    cur_element.textContent = (DataPoint.totalSpeed(point) * 3.6).toFixed(0);
-                    break;
-            }
+        }, 200)
     }
 
-          } else {
-            clearInterval(playbackInterval) // Stop interval when all lines are displayed
-            document.getElementById('openCsvBtn').disabled = false;
-            document.getElementById('playBtn').disabled = false;
-          }
-        }, 200)
-      }
-
-      function stop() {
+    function stop() {
         clearInterval(playbackInterval) // Stop playback
         document.getElementById('openCsvBtn').disabled = false;
         document.getElementById('playBtn').disabled = false;
-      }
+    }
+
+
+    function toRadians(degrees) {
+        return degrees * (Math.PI / 180);
+    }
+
+    function haversineDistance(start, finish) {
+        const R = 6371; // Earth radius in kilometers
+        const dLat = toRadians(finish.lat - start.lat);
+        const dLon = toRadians(finish.lon - start.lon);
+
+        const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRadians(start.lat)) * Math.cos(toRadians(finish.lat)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        const distance = R * c; // Distance in kilometers
+        return distance;
+    }
+
+    function distanceToLane(start, finish, current) {
+
+      var distance = (haversineDistance(start, current) +
+                      haversineDistance(current,finish) -
+                      haversineDistance(start, finish));
+      distance = Math.round (distance * 1000);
+      return distance;
+    }
+
+
+
     </script>
   </body>
 </html>
