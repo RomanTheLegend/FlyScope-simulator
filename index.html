@@ -25,6 +25,27 @@
       position: absolute;
     }
 
+    #score {
+      position: absolute;
+      background-color: #484848;
+      width: 222px;
+      height: 100px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%); /* Center the element */
+      display: none;
+    }
+
+    .scores{
+      color: rgb(233, 161, 27);
+      font-size: 15pt;
+      font-weight: bold;
+      font-family: Arial, Helvetica, sans-serif;
+      margin-left: 40px;
+      margin-top: 5px;
+      margin-bottom: 5px;
+    }
+
     #jsonInput {
       width: 600px;
       height: 300px;
@@ -56,7 +77,11 @@
       <div>
         <div id="csvArea">
           <div id="output"></div>
-
+          <div id="score">
+            <p id="scoreT" class="scores">aaaa</p>
+            <p id="scoreV" class="scores">aaaa</p>
+            <p id="scoreS" class="scores">aaaa</p>
+          </div>
         </div>
         <button id="openCsvBtn" style="margin-left: 30px;margin-top: 20px;">Open CSV</button>
         <button id="playBtn" onclick="play()">Play</button>
@@ -380,11 +405,20 @@ const map = L.map('map').setView([0, 0], 2);
                 if (finish_dp === null && currentAlt <= 1500) {
                     finish_dp = point;
 
-                    var distance = haversineDistance(start_dp, finish_dp);
-
                     L.marker([finish_dp.lat, finish_dp.lon]).addTo(markers)
                         .bindPopup('1500m')
                         .openPopup();
+                }
+
+
+                if (finish_dp !== null && currentAlt <= 1480) {
+
+                  var distance = haversineDistance(start_dp, finish_dp);
+
+                  document.getElementById('score').style.display = "block";
+                  document.getElementById('scoreT').textContent = "Time: " + (finish_dp.t - start_dp.t).toFixed(1);
+                  document.getElementById('scoreV').textContent = "Speed: " + (distance * 3600 / (finish_dp.t - start_dp.t)).toFixed(1);
+                  document.getElementById('scoreS').textContent = "Distance: " + (distance * 1000).toFixed(2);
                 }
 
                 if (movingDot) {
@@ -470,9 +504,28 @@ const map = L.map('map').setView([0, 0], 2);
                       haversineDistance(current,finish) -
                       haversineDistance(start, finish));
       distance = Math.round (distance * 1000);
+
+
+      if (isLeft(start, finish, current)){
+        distance = -1 * distance 
+      }
+
       return distance;
     }
 
+    function isLeft(start, finish, current){
+    // Vectors representing the line and the vector from start to position
+    lineVectorX = finish.lon - start.lon;
+    lineVectorY = finish.lat - start.lat;
+    positionVectorX = current.lon - start.lon;
+    positionVectorY = current.lat - start.lat;
+
+    // Calculate the cross product
+    cross = lineVectorX * positionVectorY - positionVectorX * lineVectorY;
+
+    // Determine the orientation based on the sign of the cross product
+    return cross > 0.0;
+  }
 
 
     </script>
