@@ -46,6 +46,24 @@
       margin-bottom: 5px;
     }
 
+    #deviation {
+      border-right: 2px solid rgb(12, 179, 12);
+      border-left: 2px solid rgb(12, 179, 12);;
+      height: 20px;
+      bottom: 0px;
+      left: 50%;
+      position: absolute;
+    }
+    
+    #centerline {
+      border-right: 1px solid rgb(190, 190, 190);
+      border-left: 1px solid rgb(190, 190, 190);
+      height: 20px;
+      position: absolute;
+      bottom: 0px;
+      left: 50%;
+    }
+
     #jsonInput {
       width: 600px;
       height: 300px;
@@ -77,6 +95,8 @@
       <div>
         <div id="csvArea">
           <div id="output"></div>
+          <div id="centerline"></div>
+          <div id="deviation"></div>
           <div id="score">
             <p id="scoreT" class="scores">aaaa</p>
             <p id="scoreV" class="scores">aaaa</p>
@@ -301,10 +321,10 @@ const map = L.map('map').setView([0, 0], 2);
             ff.textContent = 'airplane';
             ff.style.position = 'absolute';
             ff.style.left = '180px';
-            ff.style.top = '225px';
+            ff.style.top = '0px';
             ff.style.fontSize = '10px';
             ff.style.fontFamily = 'Arial';
-            ff.style.color = '#fff';
+            ff.style.color = 'rgb(189, 189, 189)';
 
             outputDiv.appendChild(ff);
 
@@ -435,6 +455,8 @@ const map = L.map('map').setView([0, 0], 2);
 
                 if( lane_s_dp !== null && target_dp !== null){
                   var deviation = distanceToLane(exit_dp,target_dp,point);
+                  let offset = (deviation/600)*100;
+                  document.getElementById('deviation').style.left = 50 + offset + "%"
                   // console.log(deviation);
                 }
 
